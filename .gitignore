@@ -1,0 +1,7 @@
+__pycache__/
+.env
+.streamlit/
+di_automation_v2.zip
+di_automation_final.zip
+test_verify/
+*.pyc
