@@ -17,7 +17,7 @@ def get_vector_db(
     db_path: str = "vector_db",
     collection_name: str = "di_guidelines",
     api_key: str | None = None,
-    model_name: str = "gemini-2.0-flash",
+    model_name: str = "gemini-2.5-flash",
     force_recreate: bool = False,
     progress_callback_for_new=None
 ):
@@ -98,7 +98,7 @@ def delete_document_from_db(vector_db, source_name: str) -> bool:
 def sync_vector_db(
     vector_db,
     api_key: str | None = None,
-    model_name: str = "gemini-2.0-flash",
+    model_name: str = "gemini-2.5-flash",
     kb_dir: str = "knowledge_base",
     progress_callback=None
 ):

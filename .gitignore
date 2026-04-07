@@ -5,3 +5,9 @@ di_automation_v2.zip
 di_automation_final.zip
 test_verify/
 *.pyc
+
+# 벡터 DB (대용량 바이너리 — 배포용 zip으로 별도 배포)
+vector_db/
+
+# 원본 PDF (저작권 및 용량 이슈)
+knowledge_base/

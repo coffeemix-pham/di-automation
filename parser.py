@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import os
 import time
-import google.generativeai as genai
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -13,20 +14,17 @@ from utils import is_english, build_translate_prompt
     retry=retry_if_exception_type(Exception),
     reraise=False
 )
-def _call_translate_api(model, prompt: str) -> str | None:
-    """Gemini API 호출 (최대 3회 재시도, 지수 백오프 3~15초)"""
-    response = model.generate_content(prompt)
+def _call_translate_api(client, model_name: str, prompt: str) -> str | None:
+    """Gemini API 호출 — google.genai 신 SDK (최대 3회 재시도, 지수 백오프 3~15초)"""
+    response = client.models.generate_content(model=model_name, contents=prompt)
     return response.text.strip()
 
 
-def translate_chunk(text: str, model) -> str | None:
-    """
-    단일 청크를 GMP 전문 용어로 번역합니다.
-    model: 외부에서 초기화된 GenerativeModel 인스턴스 (재사용)
-    """
+def translate_chunk(text: str, client, model_name: str) -> str | None:
+    """단일 청크를 GMP 전문 용어로 번역합니다."""
     try:
         prompt = build_translate_prompt(text)
-        return _call_translate_api(model, prompt)
+        return _call_translate_api(client, model_name, prompt)
     except Exception as e:
         print(f"Translation failed after retries: {e}")
         return None
@@ -35,7 +33,7 @@ def translate_chunk(text: str, model) -> str | None:
 def load_and_split_documents(
     kb_dir: str = "knowledge_base",
     api_key: str | None = None,
-    model_name: str = "gemini-2.0-flash",
+    model_name: str = "gemini-2.5-flash",
     target_files: list | None = None,
     progress_callback=None
 ) -> list:
@@ -63,11 +61,11 @@ def load_and_split_documents(
     if not pdf_files:
         return []
 
-    # 모델 인스턴스를 1회 초기화하여 전체 루프에서 재사용
-    gemini_model = None
+    # google.genai 신 SDK로 클라이언트 1회 초기화
+    gemini_client = None
     if api_key:
-        genai.configure(api_key=api_key)
-        gemini_model = genai.GenerativeModel(model_name)
+        from google import genai as google_genai
+        gemini_client = google_genai.Client(api_key=api_key)
 
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
@@ -99,11 +97,11 @@ def load_and_split_documents(
                 chunk.metadata["index"] = idx
 
             # 사전 번역 (API 키 있을 때만)
-            if gemini_model:
+            if gemini_client:
                 print(f"  Pre-translating {len(chunks)} chunks for {pdf_file}...")
                 for i, chunk in enumerate(chunks):
                     if is_english(chunk.page_content):
-                        translated = translate_chunk(chunk.page_content, gemini_model)
+                        translated = translate_chunk(chunk.page_content, gemini_client, model_name)
                         if translated:
                             chunk.metadata["ko_translation"] = translated
 

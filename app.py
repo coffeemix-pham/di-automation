@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 import streamlit as st
 import os
-import re
 from datetime import datetime
-import google.generativeai as genai
+from google import genai as google_genai
 from utils import is_english, build_translate_prompt, format_relevance, generate_di_report
 from vector_db import get_vector_db, get_all_source_names, delete_document_from_db, sync_vector_db
 
@@ -18,7 +19,7 @@ if not os.path.exists(KB_DIR):
 # 세션 상태 초기화
 defaults = {
     "api_key": "",
-    "model_name": "gemini-2.0-flash",
+    "model_name": "gemini-2.5-flash",
     "translate_on": True,
     "analysis_result": None,
     "proposal_text": "",
@@ -37,10 +38,9 @@ def translate_gmp(text: str, api_key: str, model_name: str) -> str:
     if not api_key:
         return "※ 번역을 위해 사이드바에 Gemini API Key를 입력하세요."
     try:
-        genai.configure(api_key=api_key.strip())
-        model = genai.GenerativeModel(model_name)
+        client = google_genai.Client(api_key=api_key.strip())
         prompt = build_translate_prompt(text)
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(model=model_name, contents=prompt)
         return response.text.strip()
     except Exception as e:
         return f"번역 오류: {e}"
@@ -119,15 +119,14 @@ with st.sidebar:
     )
     if input_key:
         st.session_state.api_key = input_key.strip()
-        genai.configure(api_key=st.session_state.api_key)
 
     st.markdown("---")
     st.subheader("🤖 AI 모델 설정")
     available_models = [
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
         "gemini-2.0-flash",
-        "gemini-2.5-pro-preview-03-25",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro",
+        "gemini-2.0-flash-lite",
     ]
     selected_model = st.selectbox(
         "사용할 AI 모델 선택",
@@ -238,8 +237,10 @@ with tab2:
                     f"[검토 대상 문장]\n{proposal_text}"
                 )
                 try:
-                    model = genai.GenerativeModel(st.session_state.model_name)
-                    response = model.generate_content(prompt)
+                    client = google_genai.Client(api_key=st.session_state.api_key)
+                    response = client.models.generate_content(
+                        model=st.session_state.model_name, contents=prompt
+                    )
                     analysis = response.text
 
                     # 세션 상태에 저장 (보고서 다운로드용)
